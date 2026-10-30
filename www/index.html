@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Channa Battle</title>
+<style>
+*{box-sizing:border-box;touch-action:manipulation}
+body{margin:0;background:#061b2b;color:white;font-family:Arial;overflow-x:hidden}
+header{background:#c91d2b;text-align:center;padding:15px;font-size:23px;font-weight:bold}
+.top{display:flex;justify-content:space-around;padding:11px;background:#102e40}
+nav{display:flex;flex-wrap:wrap;gap:6px;padding:8px}
+button{border:0;border-radius:9px;padding:11px;background:#d92735;color:white;font-weight:bold;cursor:pointer}
+button:active{transform:scale(.94)}
+button:disabled{opacity:.35}
+.page{display:none;padding:12px}
+.page.active{display:block}
+.card{background:#123348;padding:12px;border-radius:12px;margin:10px 0;text-align:center}
+.card img{width:100%;height:145px;object-fit:contain;background:#092333;border-radius:9px}
+.small{font-size:12px;color:#b9d8e5}
+.arena{
+ position:relative;width:100%;height:52vh;min-height:330px;
+ overflow:hidden;border:3px solid #38b9d0;border-radius:16px;
+ background:linear-gradient(140deg,#06344e,#087d91,#042b4a);
+}
+.waterlight{position:absolute;inset:-50%;opacity:.25;pointer-events:none;
+ background:repeating-linear-gradient(115deg,transparent 0 35px,#8defff 37px,transparent 40px 85px);
+ animation:water 9s linear infinite}
+@keyframes water{to{transform:translateX(100px)}}
+.bubble{position:absolute;border:1px solid #a4f4ff;border-radius:50%;width:10px;height:10px;opacity:.5;animation:rise 5s linear infinite}
+@keyframes rise{0%{transform:translateY(80px);opacity:0}50%{opacity:.7}100%{transform:translateY(-350px);opacity:0}}
+.fishSprite{
+ position:absolute;width:clamp(100px,30vw,155px);height:95px;
+ object-fit:contain;z-index:3;filter:drop-shadow(0 0 8px #70eaff);
+ transition:filter .2s;pointer-events:none;
+}
+#player{left:10%;top:60%}
+#enemy{left:65%;top:25%;filter:drop-shadow(0 0 8px #ff7979)}
+.hud{display:flex;gap:9px;margin:8px 0}
+.hpbox{flex:1;background:#183849;padding:8px;border-radius:8px;font-size:12px}
+.bar{height:11px;background:#333;border-radius:10px;overflow:hidden;margin-top:5px}
+.bar div{height:100%;background:#39df86;width:100%;transition:width .2s}
+.controls{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px}
+.joyArea{width:135px;height:135px;background:#163e50;border:2px solid #60c9dc;border-radius:50%;position:relative;touch-action:none;flex-shrink:0}
+#stick{position:absolute;width:58px;height:58px;border-radius:50%;background:#70d7e9;border:3px solid white;left:37px;top:37px;pointer-events:none}
+.skills{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:1}
+.skills button{min-height:54px;background:#176b9b;font-size:12px}
+.skills .ult{background:#a52cbb}
+.skills .heal{background:#168c5b}
+#message{background:#092638;padding:10px;border-radius:8px;text-align:center;margin-top:8px;font-size:13px;min-height:38px}
+.overlay{display:none;position:fixed;inset:0;z-index:20;background:#00101ddd;align-items:center;justify-content:center;padding:20px}
+.overlay.show{display:flex}
+.result{width:100%;max-width:340px;text-align:center;background:linear-gradient(#075b75,#102a42);border:3px solid #55e8ff;border-radius:20px;padding:25px;box-shadow:0 0 35px #00cfff}
+.result h1{font-size:43px;color:#ffe45c;text-shadow:0 0 15px orange}
+.result button{width:100%;margin-top:8px}
+.attackFlash{position:absolute;inset:0;z-index:5;pointer-events:none;background:white;opacity:0}
+.attackFlash.flash{animation:flash .25s}
+@keyframes flash{0%{opacity:.6}100%{opacity:0}}
+.skinPreview{height:110px;border-radius:10px;margin:5px 0}
+@media(max-width:380px){.joyArea{width:115px;height:115px}#stick{left:27px;top:27px}.skills button{padding:8px}}
+</style>
+</head>
+<body>
+
+<header>🐟 CHANNA BATTLE</header>
+<div class="top">
+ <span>🪙 <b id="coins">1000</b></span>
+ <span>💎 <b id="diamonds">0</b></span>
+ <span>🏆 <b id="wins">0</b></span>
+</div>
+
+<nav>
+ <button onclick="page('home')">HOME</button>
+ <button onclick="page('shop')">SHOP IKAN</button>
+ <button onclick="page('collection')">KOLEKSI</button>
+ <button onclick="page('diamond')">DIAMOND</button>
+ <button onclick="page('aquarium')">SKIN AQUARIUM</button>
+</nav>
+
+<section id="home" class="page active">
+ <div class="card">
+  <h2>PERTARUNGAN BAWAH AIR</h2>
+  <p>Pilih ikan Channa dan masuk ke arena!</p>
+  <img id="homeFish" alt="Foto ikan pilihan">
+  <p id="homePhotoInfo" class="small">Mencari foto spesies...</p>
+  <h3 id="selectedName">Channa Marulioides</h3>
+  <button onclick="startGame()" style="width:100%">MULAI BERPERANG</button>
+ </div>
+</section>
+
+<section id="shop" class="page">
+ <h2>SHOP IKAN</h2>
+ <div id="shopList"></div>
+</section>
+
+<section id="collection" class="page">
+ <h2>KOLEKSI IKAN</h2>
+ <div id="collectionList"></div>
+</section>
+
+<section id="diamond" class="page">
+ <h2>TOKO DIAMOND</h2>
+ <p class="small">Diamond dibeli menggunakan koin permainan.</p>
+ <div id="diamondList"></div>
+</section>
+
+<section id="aquarium" class="page">
+ <h2>SKIN AQUARIUM</h2>
+ <p class="small">Beli skin dengan diamond, lalu gunakan di arena.</p>
+ <div id="aquariumList"></div>
+</section>
+
+<section id="game" class="page">
+ <div class="hud">
+  <div class="hpbox">
+   <b id="playerLabel">IKAN KAMU</b>
+   <div class="bar"><div id="playerBar"></div></div>
+   <span id="playerHp">100 HP</span>
+  </div>
+  <div class="hpbox">
+   <b id="enemyLabel">LAWAN</b>
+   <div class="bar"><div id="enemyBar"></div></div>
+   <span id="enemyHp">100 HP</span>
+  </div>
+ </div>
+
+ <div class="arena" id="arena">
+  <div class="waterlight"></div>
+  <div class="bubble" style="left:15%;top:20%"></div>
+  <div class="bubble" style="left:40%;top:75%;animation-delay:1s"></div>
+  <div class="bubble" style="left:80%;top:15%;animation-delay:2s"></div>
+  <div class="bubble" style="left:90%;top:65%;animation-delay:3s"></div>
+  <div class="attackFlash" id="flash"></div>
+  <img id="player" class="fishSprite" alt="Ikan pemain">
+  <img id="enemy" class="fishSprite" alt="Ikan lawan">
+ </div>
+
+ <div id="message">Gunakan analog untuk bergerak.</div>
+ <div class="controls">
+  <div class="joyArea" id="joy"><div id="stick"></div></div>
+  <div class="skills">
+   <button id="s1" onclick="useSkill(1)">SKILL 1<br>Serangan</button>
+   <button id="s2" onclick="useSkill(2)">SKILL 2<br>Serangan kuat</button>
+   <button id="s3" class="ult" onclick="useSkill(3)">ULTIMATE<br>Serangan besar</button>
+   <button id="heal" class="heal" onclick="useHeal()">HEAL<br>Pulihkan HP</button>
+  </div>
+ </div>
+ <button onclick="leaveGame()" style="width:100%;margin-top:10px;background:#555">KELUAR</button>
+</section>
+
+<div class="overlay" id="resultOverlay">
+ <div class="result">
+  <h1 id="resultTitle">VICTORY!</h1>
+  <p id="resultText">Kamu memenangkan pertarungan!</p>
+  <p id="rewardText">+150 KOIN</p>
+  <button onclick="startGame()">MAIN LAGI</button>
+  <button onclick="leaveGame()" style="background:#555">KEMBALI KE MENU</button>
+ </div>
+</div>
+
+<script>
+const fishes=[
+ {id:"maru",name:"Channa Marulioides",hp:150,atk:17,price:0},
+ {id:"barca",name:"Channa Barca",hp:190,atk:24,price:600},
+ {id:"argus",name:"Channa Argus",hp:180,atk:22,price:500},
+ {id:"andrao",name:"Channa Andrao",hp:130,atk:20,price:350},
+ {id:"pulchra",name:"Channa Pulchra",hp:160,atk:22,price:450},
+ {id:"aurantimaculata",name:"Channa Aurantimaculata",hp:200,atk:26,price:800},
+ {id:"stewartii",name:"Channa Stewartii",hp:175,atk:23,price:550},
+ {id:"bleheri",name:"Channa Bleheri",hp:145,atk:21,price:400},
+ {id:"asiatica",name:"Channa Asiatica",hp:165,atk:24,price:500},
+ {id:"gachua",name:"Channa Gachua",hp:135,atk:19,price:300},
+ {id:"lucius",name:"Channa Lucius",hp:180,atk:25,price:650},
+ {id:"pleurophthalma",name:"Channa Pleurophthalma",hp:185,atk:24,price:700},
+ {id:"micropeltes",name:"Channa Micropeltes",hp:220,atk:30,price:1200},
+ {id:"diplogramma",name:"Channa Diplogramma",hp:205,atk:29,price:1000}
+];
+
+const aquariumSkins=[
+ {id:"ocean",name:"Ocean Blue",price:0,bg:"linear-gradient(140deg,#06344e,#087d91,#042b4a)"},
+ {id:"deep",name:"Deep Ocean",price:100,bg:"linear-gradient(140deg,#020617,#092b55,#04152e)"},
+ {id:"forest",name:"Green Forest",price:200,bg:"linear-gradient(140deg,#063b32,#087d50,#02251e)"},
+ {id:"coral",name:"Red Coral",price:300,bg:"linear-gradient(140deg,#641b32,#c44b43,#35102c)"},
+ {id:"purple",name:"Purple Galaxy",price:500,bg:"linear-gradient(140deg,#180b35,#652d91,#100c35)"},
+ {id:"gold",name:"Golden Ocean",price:750,bg:"linear-gradient(140deg,#503509,#c38b24,#30200b)"}
+];
+
+let data;
+try{data=JSON.parse(localStorage.getItem("channa_battle_save"))}catch(e){}
+if(!data||!Array.isArray(data.owned)){
+ data={coins:1000,diamonds:0,wins:0,owned:["maru"],selected:"maru",ownedSkins:["ocean"],selectedSkin:"ocean"};
+}
+if(!Array.isArray(data.ownedSkins))data.ownedSkins=["ocean"];
+if(!data.selectedSkin)data.selectedSkin="ocean";
+if(!Number.isFinite(data.coins))data.coins=1000;
+if(!Number.isFinite(data.diamonds))data.diamonds=0;
+if(!Number.isFinite(data.wins))data.wins=0;
+
+function save(){
+ localStorage.setItem("channa_battle_save",JSON.stringify(data));
+ updateTop();
+}
+function updateTop(){
+ document.getElementById("coins").textContent=data.coins;
+ document.getElementById("diamonds").textContent=data.diamonds;
+ document.getElementById("wins").textContent=data.wins;
+ let f=fishes.find(x=>x.id===data.selected)||fishes[0];
+ document.getElementById("selectedName").textContent=f.name;
+ document.getElementById("homeFish").src=f.img||"";
+ document.getElementById("homePhotoInfo").textContent=f.photoStatus||"Mencari foto spesies...";
+}
+
+/* Cari gambar spesies berdasarkan nama di Wikimedia Commons.
+   Jika tidak ditemukan, tampilkan keterangan dan bukan foto ikan lain. */
+async function loadFishPhoto(f){
+ f.photoStatus="Mencari foto "+f.name+"...";
+ let api="https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch="+encodeURIComponent("filetype:bitmap "+f.name)+"&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url&iiurlwidth=600&format=json&origin=*";
+ try{
+  let response=await fetch(api);
+  let json=await response.json();
+  let pages=Object.values(json.query?.pages||{});
+  let key=f.name.toLowerCase().replace("channa ","").replace(/[^a-z]/g,"");
+  let match=pages.find(p=>{
+   let title=p.title.toLowerCase().replace(/[^a-z]/g,"");
+   return title.includes("channa")&&title.includes(key)&&p.imageinfo?.[0]?.thumburl;
+  });
+  if(match){
+   f.img=match.imageinfo[0].thumburl;
+   f.photoStatus="Foto spesies dari Wikimedia Commons";
+  }else{
+   f.img="";
+   f.photoStatus="Foto spesies belum ditemukan";
+  }
+ }catch(e){
+  f.img="";
+  f.photoStatus="Foto gagal dimuat. Periksa internet.";
+ }
+ refreshPhotos();
+}
+function refreshPhotos(){
+ let f=fishes.find(x=>x.id===data.selected)||fishes[0];
+ document.getElementById("homeFish").src=f.img||"";
+ document.getElementById("homePhotoInfo").textContent=f.photoStatus||"";
+ if(player){
+  let p=fishes.find(x=>x.id===player.id);
+  let e=fishes.find(x=>x.id===enemy.id);
+  document.getElementById("player").src=p?.img||"";
+  document.getElementById("enemy").src=e?.img||"";
+ }
+ if(document.getElementById("shop").classList.contains("active"))renderShop();
+ if(document.getElementById("collection").classList.contains("active"))renderCollection();
+}
+fishes.forEach(loadFishPhoto);
+
+function page(id){
+ document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+ document.getElementById(id).classList.add("active");
+ if(id==="shop")renderShop();
+ if(id==="collection")renderCollection();
+ if(id==="diamond")renderDiamond();
+ if(id==="aquarium")renderAquarium();
+ updateTop();
+}
+function photoHTML(f){
+ return f.img
+ ? `<img src="${f.img}" alt="${f.name}">`
+ : `<div style="height:145px;display:grid;place-items:center;background:#092333;border-radius:9px">Foto ${f.name} belum tersedia</div>`;
+}
+function renderShop(){
+ document.getElementById("shopList").innerHTML=fishes.map(f=>{
+ let owned=data.owned.includes(f.id);
+ return `<div class="card">${photoHTML(f)}
+ <h3>${f.name}</h3><p>HP ${f.hp} | ATK ${f.atk}</p>
+ <p class="small">${f.photoStatus||"Mencari foto..."}</p>
+ ${owned?`<button onclick="selectFish('${f.id}')">${data.selected===f.id?"DIPAKAI":"PILIH IKAN"}</button>`:
+ `<button onclick="buyFish('${f.id}')">BELI ${f.price} KOIN</button>`}
+ </div>`;
+ }).join("");
+}
+function buyFish(id){
+ let f=fishes.find(x=>x.id===id);
+ if(!f||data.owned.includes(id))return;
+ if(data.coins<f.price){alert("Koin tidak cukup!");return}
+ data.coins-=f.price;data.owned.push(id);save();renderShop();
+ alert(f.name+" berhasil dibeli!");
+}
+function selectFish(id){
+ if(!data.owned.includes(id))return;
+ data.selected=id;save();renderShop();renderCollection();
+}
+function renderCollection(){
+ document.getElementById("collectionList").innerHTML=data.owned.map(id=>{
+ let f=fishes.find(x=>x.id===id);if(!f)return "";
+ return `<div class="card">${photoHTML(f)}<h3>${f.name}</h3>
+ <button onclick="selectFish('${f.id}')">${data.selected===id?"SEDANG DIPAKAI":"GUNAKAN IKAN"}</button></div>`;
+ }).join("");
+}
+function renderDiamond(){
+ let packs=[{n:50,c:100},{n:100,c:200},{n:250,c:500},{n:500,c:1000}];
+ document.getElementById("diamondList").innerHTML=packs.map((p,i)=>`
+ <div class="card"><h3>💎 ${p.n} Diamond</h3><p>${p.c} koin</p>
+ <button onclick="buyDiamond(${i})">BELI DIAMOND</button></div>`).join("");
+}
+function buyDiamond(i){
+ let p=[{n:50,c:100},{n:100,c:200},{n:250,c:500},{n:500,c:1000}][i];
+ if(data.coins<p.c){alert("Koin tidak cukup!");return}
+ data.coins-=p.c;data.diamonds+=p.n;save();renderDiamond();
+ alert("Diamond berhasil ditambahkan!");
+}
+
+/* AQUARIUM */
+function renderAquarium(){
+ document.getElementById("aquariumList").innerHTML=aquariumSkins.map(s=>{
+ let owned=data.ownedSkins.includes(s.id);
+ return `<div class="card">
+ <div class="skinPreview" style="background:${s.bg}"></div>
+ <h3>${s.name}</h3>
+ <p>${s.price===0?"Gratis":s.price+" Diamond"}</p>
+ ${owned?
+ `<button onclick="selectAquarium('${s.id}')">${data.selectedSkin===s.id?"SEDANG DIPAKAI":"GUNAKAN SKIN"}</button>`:
+ `<button onclick="buyAquarium('${s.id}')">BELI SKIN</button>`}
+ </div>`;
+ }).join("");
+}
+function buyAquarium(id){
+ let s=aquariumSkins.find(x=>x.id===id);
+ if(!s||data.ownedSkins.includes(id))return;
+ if(data.diamonds<s.price){alert("Diamond kamu tidak cukup!");return}
+ data.diamonds-=s.price;
+ data.ownedSkins.push(id);
+ save();renderAquarium();
+ alert("Skin "+s.name+" berhasil dibeli!");
+}
+function selectAquarium(id){
+ if(!data.ownedSkins.includes(id))return;
+ data.selectedSkin=id;save();applyAquarium();renderAquarium();
+}
+function applyAquarium(){
+ let s=aquariumSkins.find(x=>x.id===data.selectedSkin)||aquariumSkins[0];
+ document.getElementById("arena").style.background=s.bg;
+}
+
+/* PERTARUNGAN */
+let player=null,enemy=null,px=10,py=60,ex=68,ey=25;
+let playing=false,joyActive=false,joyX=0,joyY=0;
+let gameLoop=null,enemyLoop=null;
+let cooldown={1:0,2:0,3:0},healUsed=false;
+let playerFacing=1,enemyFacing=-1;
+
+function startGame(){
+ document.getElementById("resultOverlay").classList.remove("show");
+ let f=fishes.find(x=>x.id===data.selected)||fishes[0];
+ let choices=fishes.filter(x=>x.id!==f.id);
+ let e=choices[Math.floor(Math.random()*choices.length)];
+ player={id:f.id,name:f.name,hp:f.hp,max:f.hp,atk:f.atk};
+ enemy={id:e.id,name:e.name,hp:e.hp,max:e.hp,atk:e.atk};
+ px=10;py=60;ex=68;ey=25;
+ cooldown={1:0,2:0,3:0};healUsed=false;playing=true;
+ joyX=0;joyY=0;
+ document.getElementById("player").src=f.img||"";
+ document.getElementById("enemy").src=e.img||"";
+ document.getElementById("message").textContent="Dekati lawan dengan analog!";
+ page("game");applyAquarium();updateBattle();
+ clearInterval(gameLoop);clearInterval(enemyLoop);
+ gameLoop=setInterval(updateMovement,35);
+ enemyLoop=setInterval(enemyMove,450);
+}
+function updateBattle(){
+ if(!player||!enemy)return;
+ document.getElementById("playerLabel").textContent=player.name;
+ document.getElementById("enemyLabel").textContent=enemy.name;
+ document.getElementById("playerHp").textContent=Math.ceil(player.hp)+" / "+player.max+" HP";
+ document.getElementById("enemyHp").textContent=Math.ceil(enemy.hp)+" / "+enemy.max+" HP";
+ document.getElementById("playerBar").style.width=Math.max(0,player.hp/player.max*100)+"%";
+ document.getElementById("enemyBar").style.width=Math.max(0,enemy.hp/enemy.max*100)+"%";
+ document.getElementById("player").style.left=px+"%";
+ document.getElementById("player").style.top=py+"%";
+ document.getElementById("enemy").style.left=ex+"%";
+ document.getElementById("enemy").style.top=ey+"%";
+ document.getElementById("player").style.transform=playerFacing<0?"scaleX(-1)":"scaleX(1)";
+ document.getElementById("enemy").style.transform=enemyFacing<0?"scaleX(-1)":"scaleX(1)";
+ document.getElementById("heal").disabled=healUsed||!playing;
+ [1,2,3].forEach(i=>document.getElementById("s"+i).disabled=!playing||Date.now()<cooldown[i]);
+}
+function distance(){
+ let dx=(px-ex)*2.2,dy=(py-ey)*1.5;
+ return Math.sqrt(dx*dx+dy*dy);
+}
+function updateMovement(){
+ if(!playing)return;
+ px=Math.max(0,Math.min(80,px+joyX*.38));
+ py=Math.max(0,Math.min(80,py+joyY*.38));
+ if(Math.abs(joyX)>.1)playerFacing=joyX>0?1:-1;
+ updateBattle();
+}
+function enemyMove(){
+ if(!playing)return;
+ let dx=px-ex,dy=py-ey;
+ let d=Math.sqrt(dx*dx+dy*dy)||1;
+ if(d>13){ex+=dx/d*1.6;ey+=dy/d*1.6}
+ enemyFacing=dx>0?1:-1;
+ if(distance()<18){
+  let damage=Math.round(enemy.atk*.35+Math.random()*4);
+  player.hp=Math.max(0,player.hp-damage);
+  document.getElementById("message").textContent=enemy.name+" menyerang! -"+damage+" HP";
+  if(player.hp<=0){endGame(false);return}
+ }
+ updateBattle();
+}
+function flash(){
+ let f=document.getElementById("flash");
+ f.classList.remove("flash");void f.offsetWidth;f.classList.add("flash");
+}
+function useSkill(n){
+ if(!playing||Date.now()<cooldown[n])return;
+ if(distance()>(n===3?85:52)){
+  document.getElementById("message").textContent="Lawan terlalu jauh! Dekati lawan.";
+  return;
+ }
+ let multiplier=n===1?1.4:n===2?2.1:3.5;
+ let damage=Math.round(player.atk*multiplier+Math.random()*8);
+ enemy.hp=Math.max(0,enemy.hp-damage);
+ cooldown[n]=Date.now()+(n===1?2500:n===2?5000:10000);
+ flash();
+ document.getElementById("message").textContent=(n===3?"ULTIMATE!":"SKILL "+n+"!")+" Damage "+damage+"!";
+ if(enemy.hp<=0){updateBattle();endGame(true);return}
+ updateBattle();
+}
+function useHeal(){
+ if(!playing||healUsed)return;
+ healUsed=true;
+ let amount=Math.round(player.max*.4);
+ player.hp=Math.min(player.max,player.hp+amount);
+ document.getElementById("message").textContent="HEAL! HP pulih "+amount+".";
+ updateBattle();
+}
+function endGame(win){
+ if(!playing)return;
+ playing=false;
+ clearInterval(gameLoop);clearInterval(enemyLoop);
+ joyX=0;joyY=0;
+ if(win){
+  data.coins+=150;data.wins++;
+  document.getElementById("resultTitle").textContent="VICTORY!";
+  document.getElementById("resultText").textContent="KAMU MEMENANGKAN PERTARUNGAN!";
+  document.getElementById("rewardText").textContent="+150 KOIN";
+ }else{
+  data.coins+=25;
+  document.getElementById("resultTitle").textContent="DEFEAT";
+  document.getElementById("resultText").textContent="Kamu kalah dalam pertarungan.";
+  document.getElementById("rewardText").textContent="+25 KOIN";
+ }
+ save();updateBattle();
+ document.getElementById("resultOverlay").classList.add("show");
+}
+function leaveGame(){
+ playing=false;clearInterval(gameLoop);clearInterval(enemyLoop);
+ document.getElementById("resultOverlay").classList.remove("show");
+ joyX=0;joyY=0;page("home");
+}
+
+/* ANALOG */
+const joy=document.getElementById("joy");
+const stick=document.getElementById("stick");
+function setJoy(e){
+ let r=joy.getBoundingClientRect();
+ let x=e.clientX-r.left-r.width/2;
+ let y=e.clientY-r.top-r.height/2;
+ let max=(r.width/2)-29;
+ let len=Math.sqrt(x*x+y*y);
+ if(len>max){x=x/len*max;y=y/len*max}
+ stick.style.left=(r.width/2-29+x)+"px";
+ stick.style.top=(r.height/2-29+y)+"px";
+ joyX=x/max;joyY=y/max;
+}
+function resetJoy(){
+ joyActive=false;joyX=0;joyY=0;
+ stick.style.left=(joy.clientWidth/2-29)+"px";
+ stick.style.top=(joy.clientHeight/2-29)+"px";
+}
+joy.addEventListener("pointerdown",e=>{
+ joyActive=true;joy.setPointerCapture(e.pointerId);setJoy(e);
+});
+joy.addEventListener("pointermove",e=>{if(joyActive)setJoy(e)});
+joy.addEventListener("pointerup",resetJoy);
+joy.addEventListener("pointercancel",resetJoy);
+
+updateTop();
+</script>
+</body>
+  </html>
